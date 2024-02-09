@@ -53,6 +53,8 @@ export default class MarketDataStreamer {
   private authState = ''
   private errorListeners = new Map()
   private authStateListeners = new Map()
+  private unknownDataListeners = new Map()
+  private outgoingMessageListeners = new Map()
 
   addDataListener(dataListener: MarketDataListener, channelId: number | null = null): Remover {
     if (_.isNil(dataListener)) {
@@ -62,6 +64,26 @@ export default class MarketDataStreamer {
     this.dataListeners.set(guid, { listener: dataListener, channelId })
 
     return () => this.dataListeners.delete(guid)
+  }
+
+  addUnknownDataListener(dataListener: MarketDataListener): Remover {
+    if (_.isNil(dataListener)) {
+      return _.noop
+    }
+    const guid = uuidv4()
+    this.unknownDataListeners.set(guid, dataListener)
+
+    return () => this.unknownDataListeners.delete(guid)
+  }
+
+  addOutgoingMessageListener(dataListener: MarketDataListener): Remover {
+    if (_.isNil(dataListener)) {
+      return _.noop
+    }
+    const guid = uuidv4()
+    this.outgoingMessageListeners.set(guid, dataListener)
+
+    return () => this.outgoingMessageListeners.delete(guid)
   }
 
   addErrorListener(errorListener: ErrorListener): Remover {
@@ -342,6 +364,10 @@ export default class MarketDataStreamer {
     })
   }
 
+  private notifyUnknownDataListeners(jsonData: any) {
+    this.unknownDataListeners.forEach(listener => listener(jsonData))
+  }
+
   private notifyErrorListeners(error: any) {
     this.errorListeners.forEach(listener => listener(error))
   }
@@ -359,14 +385,23 @@ export default class MarketDataStreamer {
       case 'FEED_DATA':
         this.notifyListeners(jsonData)
         break
+      default:
+        this.notifyUnknownDataListeners(jsonData)
+        break
     }
   }
 
   private sendMessage(json: object) {
     if (_.isNil(this.webSocket)) {
+      console.warn('Websock closed, dropping outgoing message', this.webSocket, json)
       return
     }
 
-    this.webSocket.send(JSON.stringify(json))
+    this.outgoingMessageListeners.forEach(listener => listener(json))
+    
+    this.webSocket.send(JSON.stringify(json), (err) => {
+      if (err)
+        console.log('Error sending outgoing message', json, err)
+    })
   }
 }
