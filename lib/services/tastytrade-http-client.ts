@@ -1,10 +1,8 @@
-import TastytradeSession from "../models/tastytrade-session"
+import TastytradeSession from "../models/tastytrade-session.js"
 import axios from "axios"
 import qs from 'qs'
-import { recursiveDasherizeKeys } from "../utils/json-util"
+import { recursiveDasherizeKeys } from "../utils/json-util.js"
 import _ from 'lodash'
-import https from 'https'
-import { MinTlsVersion } from "../utils/constants"
 
 const ParamsSerializer = {
   serialize: function (queryParams: object) {
@@ -14,19 +12,24 @@ const ParamsSerializer = {
 
 export default class TastytradeHttpClient{
     public readonly session: TastytradeSession
-    private readonly httpsAgent: https.Agent
 
     constructor(private readonly baseUrl: string) {
       this.session = new TastytradeSession()
-      this.httpsAgent = new https.Agent({ minVersion: MinTlsVersion })
     }
 
     private getDefaultHeaders(): any {
-        return {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Authorization": this.session.authToken,
-        };
+      const headers: { [key: string]: any } = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": this.session.authToken
+      };
+
+      // Only set user agent if running in node
+      if (typeof window === 'undefined') {
+        headers["User-Agent"] = 'tastytrade-sdk-js'
+      }
+
+      return headers
     }
 
     private async executeRequest(method: string, url: string, data: object = {}, headers: object = {}, params: object = {}) {
@@ -41,8 +44,7 @@ export default class TastytradeHttpClient{
         data: dasherizedData,
         headers: mergedHeaders, 
         params: dasherizedParams,
-        paramsSerializer: ParamsSerializer,
-        httpsAgent: this.httpsAgent
+        paramsSerializer: ParamsSerializer
        }, _.isEmpty)
 
       return axios.request(config)

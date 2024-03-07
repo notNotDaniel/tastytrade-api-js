@@ -1,7 +1,7 @@
 import WebSocket from 'isomorphic-ws'
 import _ from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
-import { MinTlsVersion } from './utils/constants'
+import { MinTlsVersion } from './utils/constants.js'
 
 export enum MarketDataSubscriptionType {
   Candle = 'Candle',
@@ -55,6 +55,10 @@ export default class MarketDataStreamer {
   private authStateListeners = new Map()
   private unknownDataListeners = new Map()
   private outgoingMessageListeners = new Map()
+
+  constructor() {
+    console.warn('MarketDataStreamer is deprecated and will be removed in a future release of @tastytrade/api. Use @dxfeed/dxlink-api instead.')
+  }
 
   addDataListener(dataListener: MarketDataListener, channelId: number | null = null): Remover {
     if (_.isNil(dataListener)) {
